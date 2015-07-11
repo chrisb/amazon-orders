@@ -2,16 +2,15 @@ module Amazon
   class Order < ActiveRecord::Base
     self.primary_key = :order_id
 
-    validates :total, presence: true, numericality: true
-    validates :delivered, inclusion: { in: [true, false] }
-    validates :shipment_status, presence: true
-    # validates :ship_to, presence: true
-    # validates :shipping_address, presence: true
+    has_many :shipments
 
-    before_validation :set_delivered_status
+    # validates :total, presence: true, numericality: { greater_than: 0 }
+    validates :amount_paid, numericality: { greater_than_or_equal_to: 0 }
 
-    def set_delivered_status
-      self.delivered = shipment_status.downcase.include? 'delivered'
+    before_save :set_completion
+
+    def set_completion
+      self.completed = shipments.count == shipments.delivered.count
     end
 
   end

@@ -1,4 +1,4 @@
 .DS_Store
 config/account.yml
-orders.sqlite3
+db/orders.sqlite3
 test/data

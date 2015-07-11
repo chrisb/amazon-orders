@@ -1,6 +1,4 @@
 order:
   date: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span3 > div.a-row.a-size-base > span
-  ship_to: false
-  total: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span2 > div.a-row.a-size-base > span
-  shipment_status: .shipment > div > div.a-row.shipment-top-row > div:nth-child(1) > div:nth-child(1) > span.a-size-medium.a-text-bold
+  amount_paid: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span2 > div.a-row.a-size-base > span
   order_id: .order-info > div > div > div > .actions > div > span.value
