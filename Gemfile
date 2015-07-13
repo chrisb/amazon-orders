@@ -10,6 +10,7 @@ gem 'sqlite3'
 gem 'rake'
 
 gem 'colored'
+gem 'highline', require: 'highline/import'
 
 gem 'awesome_print'
 gem 'byebug'

@@ -25,6 +25,31 @@ task console: :environment do
   Pry.start
 end
 
+namespace :config do
+  desc 'generate a config/account.yml file with your Amazon.com credentials'
+  task generate: :dependencies do
+    puts "\nNOTE: The credentials you enter\nhere are stored in #{'PLAIN TEXT'.red}.\n\n"
+    puts "The credentials will be stored in:\n#{File.expand_path('./config/account.yml').to_s.red}\n\n"
+
+    email = ask 'Amazon.com Account Email: '
+    password = ask('Amazon.com Account Password (hidden): ') { |q| q.echo = '*' }
+
+    # confirmation; may or may not want ...
+    password_confirm = ask('Confirm Amazon.com Account Password (hidden): ') { |q| q.echo = '*' }
+    password = nil unless password == password_confirm
+
+    puts "\n"
+
+    if password.blank? || email.blank?
+      puts "No luck with that; please try again.\n\n"
+      next
+    end
+
+    File.open('./config/account.yml', 'w') { |f| f.puts({ email: email, password: password }.to_yaml) }
+    puts "Wrote values to #{File.expand_path('./config/account.yml').to_s}\n\n"
+  end
+end
+
 namespace :db do
   desc 'wipe all local order data'
   task reset: :establish_connection do
@@ -41,17 +66,24 @@ namespace :db do
           t.string :order_id, null: false, index: true, unique: true
           t.date :date, null: false
           t.float :amount_paid, default: 0, null: false
+          t.float :amount_total, default: 0, null: false
+          t.float :amount_tax, default: 0, null: false
           t.boolean :gift, default: false, null: false
           t.boolean :completed, default: false, null: false
           t.timestamps null: false
         end
-        create_table :shipments, force: true do |t|
-          t.string :order_id, null: false, index: true
+        create_table :shipments, force: true, id: false do |t|
+          t.string :shipment_id, null: false, index: true, unique: true
           t.string :ship_to
           t.string :shipment_status
           t.boolean :delivered, default: false, null: false, index: true
           t.timestamps null: false
         end
+        create_table :shipment_orders, force: true, id: false do |t|
+          t.string :shipment_id, null: false, index: true
+          t.string :order_id, null: false, index: true
+        end 
+
         add_index :shipments, [:order_id, :delivered]
       end
     end
@@ -73,19 +105,41 @@ namespace :orders do
 
   desc 'log in to amazon and fetch all orders'
   task fetch: :environment do
-    puts "Loading account settings ..."
-    account = YAML.load_file('./config/account.yml').with_indifferent_access
+    begin
+      puts "Loading account settings ..."
+      account = YAML.load_file('./config/account.yml').with_indifferent_access
+    rescue Errno::ENOENT
+      puts "\nHmm... no settings found.\n".red
+      puts "Let's create a configuration file!".green
+      Rake::Task['config:generate'].execute
+      retry
+    end
+
     agent   = Mechanize.new { |a| a.user_agent_alias = 'Mac Safari' }
     puts "Loading #{'Amazon.com'.yellow}..."
     agent.get('https://www.amazon.com/') do |page|
       puts "Loading the login page.."
       login_page = agent.click(page.link_with(href: %r{ap/signin}))
       puts "Filling out the form and logging in..."
-      post_login_page = login_page.form_with(action: %r{ap/signin}) do |f|
-        account.each_pair { |k,v| f.send "#{k}=", v }
-      end.click_button
+      begin
+        post_login_page = login_page.form_with(action: %r{ap/signin}) do |f|
+          account.each_pair { |k,v| f.send "#{k}=", v }
+        end.click_button
+        orders_page = agent.click(post_login_page.link_with(text: 'Your Orders'))
+      rescue NoMethodError
+        puts "\nLogging in to Amazon.com failed.\n".red
+        puts "Try running #{'rake config:generate'.yellow} and updating your credentials."
+        next
+      end
+
       puts "Logged in successfully -- loading up your orders!\n"
-      orders_page = agent.click(post_login_page.link_with(text: 'Your Orders'))
+
+      begin
+        Amazon::Order.count
+      rescue ActiveRecord::StatementInvalid
+        Rake::Task['db:migrate'].execute
+      end
+
       years = orders_page.search('form#timePeriodForm select[name=orderFilter] option[value^="year-"]').map do |option_tag|
         option_tag.content.strip.to_i
       end
@@ -100,10 +154,17 @@ namespace :orders do
           loop do
             puts "  Parsing orders from #{year.to_s.blue} (page #{(page+1).to_s.red})"
             orders_page.search('#ordersContainer > .order').each do |node|
-              order = Amazon::OrderImporter.import(node)
-              puts "    Imported (or updated) Order ##{order.order_id.green} (#{order.reload.shipments.count} shipments)"
+              order = Amazon::OrderImporter.import(node, agent)
+              action = order.skipped? ? 'skipped' : nil
+              ( action = order.new_order? ? 'imported' : 'updated' ) if action.nil?
+              puts "    #{action.titleize.yellow} Order ##{order.order_id.green} (#{order.reload.shipments.count} shipments)"
             end
-            link = orders_page.search('ul.a-pagination li.a-last')[0].css('a')[0]
+            begin
+              last_pagination_element = orders_page.search('ul.a-pagination li.a-last')[0]
+              link = last_pagination_element.css('a')[0]
+            rescue NoMethodError
+              throw :no_more_orders
+            end
             throw :no_more_orders unless link
             orders_page = agent.click(link)
             page += 1
@@ -111,7 +172,7 @@ namespace :orders do
         end
 
       end
-      
+
       puts "\nYippee! All done."
     end
   end

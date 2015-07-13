@@ -25,6 +25,7 @@ GEM
     domain_name (0.5.24)
       unf (>= 0.0.5, < 1.0.0)
     hashdiff (0.2.2)
+    highline (1.7.2)
     hirb (0.7.3)
     http-cookie (1.0.2)
       domain_name (~> 0.5)
@@ -74,6 +75,7 @@ DEPENDENCIES
   byebug
   colored
   hashdiff
+  highline
   hirb
   map_by_method
   mechanize
@@ -81,6 +83,3 @@ DEPENDENCIES
   pry
   rake
   sqlite3
-
-BUNDLED WITH
-   1.10.5
