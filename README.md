@@ -63,4 +63,4 @@ There are a whole bunch of things I'd like to do with this, but I don't have muc
 
 ## License
 
-[MIT License](https://github.com/chrisb/amazon-orders/blob/master/LICENSE). Copyright 2009-2015 Chris Bielinski.
+[MIT License](https://github.com/chrisb/amazon-orders/blob/master/LICENSE). Copyright 2015 Chris Bielinski.
