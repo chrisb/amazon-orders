@@ -13,7 +13,26 @@ bundle exec rake orders:fetch
 
 ## Usage
 
-Once you've imported your orders, you can print a nicely-formatted table of some interesting stats with `rake stats`.
+Once you've imported your orders (it can take a while!), you can display a nicely-formatted table of some interesting stats with `rake stats`. You'll get output that looks something like this:
+
+```bash
+$  rake stats
+
++-----------------------------------+----------------------------+
+|                     Your Amazon.com Stats                      |
++-----------------------------------+----------------------------+
+| Customer Since                    | April 2007 (about 8 years) |
+| Total Orders                      | 123                        |
+| Amount Spent                      | $1,234.56                  |
+| Average Amount Spent per Order    | $12.34                     |
++-----------------------------------+----------------------------+
+| Cumulative Month with Most Orders | January (12 orders)        |
+| Cumulative Month with Most Spent  | January ($123.45)          |
++-----------------------------------+----------------------------+
+| Calendar Month with Most Orders   | January 2014 (12 orders)   |
+| Calendar Month with Most Spent    | January 2011 ($1,234.56)   |
++-----------------------------------+----------------------------+
+```
 
 To update your database, just run `rake orders:fetch` again. By default the task will only update orders that are more than 18 hours old.
 
