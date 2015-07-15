@@ -162,16 +162,6 @@ namespace :db do
 end
 
 namespace :orders do
-  desc 'import orders from test/data'
-  task import: :environment do
-    page = 0
-    while File.exists?("./test/data/orders-#{page}.html")
-      Nokogiri::HTML(File.open("./test/data/orders-#{page}.html"))
-        .css('#ordersContainer > .order')
-        .each { |node| Amazon::OrderImporter.import(node) }
-      page += 1
-    end
-  end
 
   desc 'log in to amazon and fetch all orders'
   task fetch: :environment do
