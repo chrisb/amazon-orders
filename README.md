@@ -13,7 +13,9 @@ bundle exec rake orders:fetch
 
 ## Usage
 
-Once you've imported your orders (it can take a while!), you can display a nicely-formatted table of some interesting stats with `rake stats`. You'll get output that looks something like this:
+Once you've imported your orders (it can take a while!), you can display a nicely-formatted table of some interesting stats with `rake stats`. 
+
+You'll get output that looks something like this:
 
 ```bash
 $  rake stats
