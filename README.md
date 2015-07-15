@@ -23,11 +23,11 @@ The following Rake tasks are available:
 
 | Task Name | Description |
 | ------------- | ----------- |
-| `rake db:migrate` | Ensure the DB schema is up-to-date.
-| `rake db:reset` | Wipe all local order data.
+| `rake stats` | Display some interesting stats about your order history.
 | `rake orders:fetch` | Log in to Amazon.com and fetch all orders in your history.
 | `rake config:generate` | Generate a `config/account.yml` file with your Amazon.com credentials.
-| `rake stats` | Display some interesting stats about your order history.
+| `rake db:reset` | Wipe all local order data.
+| `rake db:migrate` | Ensure the DB schema is up-to-date.
 | `rake console` | Open an interactive console with the environment loaded (helpful if you want run your own queries or poke around your data).
 
 ## Contributing
