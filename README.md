@@ -1,6 +1,8 @@
 # Amzon Orders
 
-A collection of Rake tasks for scraping _Amazon.com_ and fetching info about your order history. Useful for determining stats about your purchase habits or automatic fetching of open order status like delivery dates and tracking numbers. Data is stored in a SQLite database and ActiveRecord adapters are provided.
+A collection of Rake tasks for scraping _Amazon.com_ and fetching info about your order history. Useful for determining stats about your purchase habits or automatic fetching of open order status like delivery dates and tracking numbers. 
+
+Data is stored in a SQLite database and ActiveRecord adapters are provided.
 
 ## Install
 
@@ -53,7 +55,9 @@ The following Rake tasks are available:
 
 ## Contributing
 
-Send me a pull request; currently there are no tests, sorry.
+This project may not capture every order type and probably doesn't work on international Amazon sites.
+
+If you spot a bug, feel free to send me a pull request; currently there are no tests, sorry.
 
 There are a whole bunch of things I'd like to do with this, but I don't have much time presently, so who knows how this project will shape up.
 
