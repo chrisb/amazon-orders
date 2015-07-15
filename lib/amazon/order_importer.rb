@@ -44,11 +44,13 @@ module Amazon
 
             shipment_id              = CGI.parse(link['href'].split('?').last)['shipmentId'].first
             tracking_page            = agent.get(link['href'])
-            tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
-            carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
 
-            shipment = Amazon::Shipment.find_or_initialize_by(shipment_id: shipment_id)
-            shipment.update_attributes carrier: carrier, tracking_number: tracking_number
+            unless tracking_page.body.match(/No tracking details/)
+              shipment = Amazon::Shipment.find_or_initialize_by(shipment_id: shipment_id)
+              tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
+              carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
+              shipment.update_attributes carrier: carrier, tracking_number: tracking_number
+            end
 
             break
           end
