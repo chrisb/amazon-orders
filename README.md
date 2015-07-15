@@ -23,12 +23,12 @@ The following Rake tasks are available:
 
 | Task Name | Description |
 | ------------- | ----------- |
-| rake db:migrate | ensure the DB schema is up-to-date
-| rake db:reset | wipe all local order data
-| rake orders:fetch | log in to amazon and fetch all orders
-| rake config:generate | generate a config/account.yml file with your Amazon.com credentials
-| rake stats | display some interesting stats about your order history |
-| rake console | open an interactive console with the environment loaded (helpful if you want run your own queries or poke around your data) |
+| `rake db:migrate` | ensure the DB schema is up-to-date
+| `rake db:reset` | wipe all local order data
+| `rake orders:fetch` | log in to amazon and fetch all orders
+| `rake config:generate` | generate a config/account.yml file with your Amazon.com credentials
+| `rake stats` | display some interesting stats about your order history |
+| `rake console` | open an interactive console with the environment loaded (helpful if you want run your own queries or poke around your data) |
 
 ## Contributing
 
@@ -42,4 +42,4 @@ There are a whole bunch of things I'd like to do with this, but I don't have muc
 
 ## License
 
-[MIT License](https://github.com/chris/amazon-orders/master/MIT-LICENSE). Copyright 2009-2015 Chris Bielinski.
+[MIT License](https://github.com/chrisb/amazon-orders/blob/master/LICENSE). Copyright 2009-2015 Chris Bielinski.
