@@ -1,9 +1,10 @@
 module Amazon
   class Shipment < ActiveRecord::Base
-    belongs_to :order
+    self.primary_key = :shipment_id
 
-    validates :order_id, presence: true
-    validates :order, presence: true
+    has_many :shipment_orders, class_name: 'Amazon::ShipmentOrder'
+    has_many :orders, through: :shipment_orders, class_name: 'Amazon::Order'
+
     validates :delivered, inclusion: { in: [true, false] }
     validates :shipment_status, presence: true
     # validates :ship_to, presence: true
@@ -17,6 +18,5 @@ module Amazon
       self.delivered = shipment_status.downcase.include?('delivered')
       true
     end
-
   end
 end

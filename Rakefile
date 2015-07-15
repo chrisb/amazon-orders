@@ -15,6 +15,7 @@ task environment: :dependencies do
   Rake::Task['establish_connection'].execute
   require './lib/amazon/order'
   require './lib/amazon/shipment'
+  require './lib/amazon/shipment_order'
   require './lib/amazon/order_importer'
 end
 
@@ -23,6 +24,73 @@ task console: :environment do
   require 'pry'
   ARGV.clear
   Pry.start
+end
+
+desc 'display some interesting stats about your order history'
+task stats: :environment do
+  include ActiveSupport::NumberHelper
+  include ActionView::Helpers::DateHelper
+  include Amazon
+
+  if Order.count == 0
+    puts "ERROR: Import some orders first with #{'rake orders:fetch'.yellow}!\n\n"
+    next
+  end
+
+  def format_row(row_or_first, second = nil)
+    arr                   = second ? [row_or_first, second] : row_or_first
+    title                 = arr.first.to_s.blue
+    value                 = arr.second.yellow
+    parenthetical_content = value[/\(.*?\)/]
+    value                 = value.gsub(parenthetical_content, parenthetical_content.green) if parenthetical_content
+    [title, value]
+  end
+
+  orders_by_calendar_month = Order.all.each_with_object({}) do |order, hsh|
+    hsh[order.date.beginning_of_month] ||= []
+    hsh[order.date.beginning_of_month] << order
+  end
+
+  orders_by_calendar_month_sorted = orders_by_calendar_month.keys.each_with_object({}) do |calendar_month, hsh|
+    hsh[calendar_month] = orders_by_calendar_month[calendar_month].count
+  end.sort_by { |date, orders| orders }.reverse
+
+  amount_by_calendar_month = orders_by_calendar_month.each_with_object({}) do |month_and_orders, hsh|
+    hsh[month_and_orders.first] = month_and_orders.last.map(&:grand_total).sum
+  end.sort_by { |date, amount| amount }.reverse
+
+  orders_by_month_number = Order.all.each_with_object({}) do |order, hsh|
+    hsh[order.date.month] ||= []
+    hsh[order.date.month] << order
+  end
+
+  order_totals_by_month = orders_by_month_number.keys.each_with_object({}) do |month_number, hsh|
+    hsh[Date::MONTHNAMES[month_number]] ||= 0
+    hsh[Date::MONTHNAMES[month_number]] += orders_by_month_number[month_number].map(&:grand_total).sum
+  end.sort_by { |month, orders| orders }.reverse
+
+  order_counts_by_month = orders_by_month_number.keys.each_with_object({}) do |month_number, hsh|
+    hsh[Date::MONTHNAMES[month_number]] = orders_by_month_number[month_number].count
+  end.sort_by { |month, amount| amount }.reverse
+
+  first_order = Order.order('date ASC').first
+
+  table = Terminal::Table.new title: 'Your Amazon.com Stats'.red do |t|
+    t << format_row('Customer Since', "#{first_order.date.strftime('%B %Y')} (#{distance_of_time_in_words_to_now first_order.date})")
+    t << format_row('Total Orders', number_to_human(Order.count))
+    t << format_row('Amount Spent', number_to_currency(Order.sum :grand_total))
+    t << format_row('Average Amount Spent per Order', number_to_currency(Order.average :grand_total))
+    t << :separator
+    t << format_row('Cumulative Month with Most Orders', "#{order_counts_by_month.first.first} (#{order_counts_by_month.first.last.to_s.green} #{'orders'.green})")
+    t << format_row('Cumulative Month with Most Spent', "#{order_totals_by_month.first.first} (#{number_to_currency(order_totals_by_month.first.last).green})")
+    t << :separator
+    t << format_row('Calendar Month with Most Orders', "#{orders_by_calendar_month_sorted.first.first.strftime '%B %Y'} (#{orders_by_calendar_month_sorted.first.last.to_s.green} #{'orders'.green})")
+    t << format_row('Calendar Month with Most Spent', "#{amount_by_calendar_month.first.first.strftime '%B %Y'} (#{number_to_currency(amount_by_calendar_month.first.last).green})")
+  end
+
+  puts "\n"
+  puts table
+  puts "\n\n"
 end
 
 namespace :config do
@@ -59,39 +127,41 @@ namespace :db do
 
   desc 'ensure the DB schema is up-to-date'
   task migrate: :establish_connection do
-    CURRENT_SCHEMA_VERSION = 2
+    CURRENT_SCHEMA_VERSION = 1
     if ActiveRecord::Migrator.current_version != CURRENT_SCHEMA_VERSION
       ActiveRecord::Schema.define(version: CURRENT_SCHEMA_VERSION) do
         create_table :orders, id: false, force: true do |t|
           t.string :order_id, null: false, index: true, unique: true
           t.date :date, null: false
-          t.float :amount_paid, default: 0, null: false
-          t.float :amount_total, default: 0, null: false
-          t.float :amount_tax, default: 0, null: false
+
+          t.float :grand_total, default: 0, null: false
+          t.float :items_subtotal, default: 0, null: false
+          t.float :estimated_tax_to_be_collected, default: 0, null: false
+
           t.boolean :gift, default: false, null: false
           t.boolean :completed, default: false, null: false
+          t.text :line_items
           t.timestamps null: false
         end
         create_table :shipments, force: true, id: false do |t|
           t.string :shipment_id, null: false, index: true, unique: true
+          t.string :carrier
+          t.string :tracking_number, index: true
           t.string :ship_to
-          t.string :shipment_status
+          t.string :shipment_status, null: false, default: 'Unknown'
           t.boolean :delivered, default: false, null: false, index: true
           t.timestamps null: false
         end
         create_table :shipment_orders, force: true, id: false do |t|
           t.string :shipment_id, null: false, index: true
           t.string :order_id, null: false, index: true
-        end 
-
-        add_index :shipments, [:order_id, :delivered]
+        end
       end
     end
   end
 end
 
 namespace :orders do
-
   desc 'import orders from test/data'
   task import: :environment do
     page = 0

@@ -1,4 +1,12 @@
-order:
-  date: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span3 > div.a-row.a-size-base > span
-  amount_paid: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span2 > div.a-row.a-size-base > span
-  order_id: .order-info > div > div > div > .actions > div > span.value
+date: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span3 > div.a-row.a-size-base > span
+amount_paid: .order-info > div > div > div > div.a-fixed-right-grid-col.a-col-left > div > div.a-column.a-span2 > div.a-row.a-size-base > span
+order_id: .order-info > div > div > div > .actions > div > span.value
+tracking_number: '#a-page > div.a-section.a-spacing-none.ship-track-page-container > div:nth-child(6) > div.a-column.a-span6.a-span-last > div.a-row.a-expander-container.a-spacing-base.a-expander-extend-container > div.a-box-group.ship-track-latest-event-wrapper > div:nth-child(2) > div > div > div.a-column.a-span9.ship-track-grid-responsive-column.a-span-last > div'
+
+
+
+order_line_item: '#od-subtotals > div'
+
+status_node: 'div > div.a-row.shipment-top-row > div:nth-child(1) > div:nth-child(1) > span.a-size-medium.a-text-bold'
+sub_status: div > div.a-row.shipment-top-row > div:nth-child(1) > div:nth-child(2) > div
+shipment_node: '#orderDetails .shipment'
