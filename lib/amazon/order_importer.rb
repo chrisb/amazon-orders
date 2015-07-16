@@ -10,20 +10,20 @@ module Amazon
       end
 
       def shipment_from_feedback_link(shipment_node)
-        shipment_node.css('a').each do |link|
-          next unless link['href'].include?('od_aui_pack_feedback')
-          shipment_id = CGI.parse(link['href'].split('?').last)['specificShipmentId'].first
-          shipment    = Amazon::Shipment.find_or_create_by(shipment_id: shipment_id)
-          shipment.update_attributes delivered: true
-          break
-        end
-        nil
+        link = shipment_node.css('a').find { |l| l['href'].include? 'od_aui_pack_feedback' }
+        return nil unless link
+
+        shipment_id = CGI.parse(link['href'].split('?').last)['specificShipmentId'].first
+        shipment    = Amazon::Shipment.find_or_create_by(shipment_id: shipment_id)
+        shipment.update_attributes delivered: true
+        shipment
       end
 
       def ad_hoc_shipment(order, shipment_index)
         fake_id  = "ORDER-#{order.order_id}-SHIPMENT-#{shipment_index}"
         shipment = Amazon::Shipment.find_or_create_by shipment_id: fake_id
         shipment.update_attributes delivered: true
+        shipment
       end
 
       def shipment_from_tracking_page(shipment_id, tracking_page)
@@ -31,7 +31,6 @@ module Amazon
         tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
         carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
         shipment.update_attributes carrier: carrier, tracking_number: tracking_number
-        shipment.save! if shipment.new_record?
         shipment
       end
 
