@@ -9,29 +9,48 @@ module Amazon
         node.css(@@css_paths['order_id']).first.content.strip
       end
 
-      def import(node, agent)
-        order = Amazon::Order.find_or_initialize_by(order_id: order_id_from_node(node))
-
-        if !order.new_record? && order.updated_at < Time.now + Amazon::OrderImporter::EXPIRATION_THRESHOLD && !order.shipments.empty?
-          order.skipped = true
-          return order
+      def shipment_from_feedback_link(shipment_node)
+        shipment_node.css('a').each do |link|
+          next unless link['href'].include?('od_aui_pack_feedback')
+          shipment_id = CGI.parse(link['href'].split('?').last)['specificShipmentId'].first
+          shipment    = Amazon::Shipment.find_or_create_by(shipment_id: shipment_id)
+          shipment.update_attributes delivered: true
+          break
         end
+        nil
+      end
 
-        url = "https://www.amazon.com/gp/your-account/order-details?orderID=#{order.order_id}"
-        order_details_page = agent.get(url)
+      def ad_hoc_shipment(order, shipment_index)
+        fake_id  = "ORDER-#{order.order_id}-SHIPMENT-#{shipment_index}"
+        shipment = Amazon::Shipment.find_or_create_by shipment_id: fake_id
+        shipment.update_attributes delivered: true
+      end
 
-        line_item_nodes  = order_details_page.search(@@css_paths['order_line_item'])
-        order.line_items = line_item_nodes.each_with_object({}) do |line_item_node, hsh|
-          next unless line_item_node.css('div > span').size == 2
-          name, amount     = line_item_node.css('div > span').map(&:content).map(&:strip)
-          name             = name.gsub('(', '').gsub(')', '').parameterize.gsub('-', '_')
-          hsh[name.to_sym] = currency_to_number(amount)
-        end
+      def shipment_from_tracking_page(shipment_id, tracking_page)
+        shipment = Amazon::Shipment.find_or_initialize_by(shipment_id: shipment_id)
+        tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
+        carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
+        shipment.update_attributes carrier: carrier, tracking_number: tracking_number
+        shipment.save! if shipment.new_record?
+        shipment
+      end
 
-        order.date = Date.parse(node.css(@@css_paths['date']).first.content)
-        order.save!
+      def parse_link_for_shipment_id
+        CGI.parse(link['href'].split('?').last)['shipmentId'].first
+      end
 
-        shipment_nodes = order_details_page.search(@@css_paths['shipment_node'])
+      def shipment_id_from_node(shipment_node)
+        link = shipment_node.css('a').find { |l| l['href'].include?('ship-track') }
+        return nil unless link
+
+        tracking_page = agent.get(link['href'])
+
+        return nil if tracking_page.body.match(/No tracking details/)
+
+        shipment_from_tracking_page parse_link_for_shipment_id(link), tracking_page
+      end
+
+      def parse_shipments_for_order(agent, order, shipment_nodes)
         shipment_nodes.each_with_index do |shipment_node, shipment_index|
           status_node     = shipment_node.css(@@css_paths['status_node']).first
           shipment_status = status_node.content.strip rescue 'Uknown'
@@ -42,35 +61,17 @@ module Amazon
           shipment_node.css('a').each do |link| # find the 'track package' link if possible
             next unless link['href'].include?('ship-track')
 
-            shipment_id              = CGI.parse(link['href'].split('?').last)['shipmentId'].first
-            tracking_page            = agent.get(link['href'])
+            shipment_id   = CGI.parse(link['href'].split('?').last)['shipmentId'].first
+            tracking_page = agent.get(link['href'])
 
-            unless tracking_page.body.match(/No tracking details/)
-              shipment = Amazon::Shipment.find_or_initialize_by(shipment_id: shipment_id)
-              tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
-              carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
-              shipment.update_attributes carrier: carrier, tracking_number: tracking_number
-            end
+            next if tracking_page.body.match(/No tracking details/)
 
+            shipment = shipment_from_tracking_page(shipment_id, tracking_page)
             break
           end
 
-          if shipment.nil? # no package tracking link, find shipmentId from feedback link
-            shipment_node.css('a').each do |link|
-              next unless link['href'].include?('od_aui_pack_feedback')
-              shipment_id = CGI.parse(link['href'].split('?').last)['specificShipmentId'].first
-              shipment    = Amazon::Shipment.find_or_create_by(shipment_id: shipment_id)
-              shipment.update_attributes delivered: true
-              break
-            end
-          end
-
-          if shipment.nil? # this must be a really old order
-            fake_id  = "ORDER-#{order.order_id}-SHIPMENT-#{shipment_index}"
-            shipment = Amazon::Shipment.find_or_create_by shipment_id: fake_id
-            shipment.update_attributes delivered: true
-          end
-
+          shipment = shipment_from_feedback_link shipment_node unless shipment # no package tracking link, find shipmentId from feedback link
+          shipment = ad_hoc_shipment order, shipment_index unless shipment
           shipment.update_attributes shipment_status: shipment_status
           shipment.save!
 
@@ -86,12 +87,56 @@ module Amazon
         order
       end
 
+      def should_skip_order?(order)
+        return false if order.new_record? || order.shipments.empty?
+        order.updated_at < Time.now + Amazon::OrderImporter::EXPIRATION_THRESHOLD
+      end
+
+      def will_skip_order?(order)
+        order.skipped = true
+        order
+      end
+
+      def formatted_line_item_name(name)
+        name.gsub('(', '').gsub(')', '').parameterize.gsub('-', '_').to_sym
+      end
+
+      def parse_line_items_for_order(order, line_item_nodes)
+        order.line_items = line_item_nodes.each_with_object({}) do |line_item_node, hsh|
+          next unless line_item_node.css('div > span').size == 2
+          name, amount = line_item_node.css('div > span').map(&:content).map(&:strip)
+          hsh[formatted_line_item_name name] = currency_to_number(amount)
+        end
+      end
+
+      def parse_date_for_order(order, node)
+        order.date = Date.parse(node.css(@@css_paths['date']).first.content)
+        order.save!
+      end
+
+      def import(node, agent)
+        order = Amazon::Order.find_or_initialize_by(order_id: order_id_from_node(node))
+
+        if should_skip_order?(order)
+          order.skipped = true
+          return order
+        end
+
+        parse_date_for_order order, node
+
+        url = "https://www.amazon.com/gp/your-account/order-details?orderID=#{order.order_id}"
+        order_details_page = agent.get(url)
+
+        parse_line_items_for_order order, order_details_page.search(@@css_paths['order_line_item'])
+        parse_shipments_for_order agent, order, order_details_page.search(@@css_paths['shipment_node'])
+      end
+
       def handle_error_saving_order(exception, order)
         puts "Unable to save order: #{order.inspect}"
         ap order
         puts 'Shipments:'
         ap order.shipments
-        raise exception
+        fail exception
       end
 
       def currency_to_number(currency)
