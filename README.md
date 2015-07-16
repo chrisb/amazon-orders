@@ -1,4 +1,4 @@
-# Amzon Orders
+# Amazon Orders
 
 A collection of Rake tasks for scraping _Amazon.com_ and fetching info about your order history. Useful for determining stats about your purchase habits or automatic fetching of open order status like delivery dates and tracking numbers. 
 
