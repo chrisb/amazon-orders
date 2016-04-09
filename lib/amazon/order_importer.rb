@@ -28,9 +28,13 @@ module Amazon
 
       def shipment_from_tracking_page(shipment_id, tracking_page)
         shipment = Amazon::Shipment.find_or_initialize_by(shipment_id: shipment_id)
-        tracking_number_string   = tracking_page.search(@@css_paths['tracking_number']).first.content
-        carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
-        shipment.update_attributes carrier: carrier, tracking_number: tracking_number
+        tracking_number_string = tracking_page.search(@@css_paths['tracking_number']).first.content rescue nil
+
+        if tracking_number_string
+          carrier, tracking_number = tracking_number_string.split(',').map { |str| str.split(':').last }.map(&:strip)
+          shipment.update_attributes carrier: carrier, tracking_number: tracking_number
+        end
+
         shipment
       end
 
