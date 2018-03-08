@@ -179,7 +179,7 @@ namespace :orders do
     puts "Loading #{'Amazon.com'.yellow}..."
     agent.get('https://www.amazon.com/') do |page|
       puts "Loading the login page.."
-      login_page = agent.click(page.link_with(href: %r{ap/signin}))
+      login_page = agent.click(page.search('a[data-nav-role="signin"]')[0])
       puts "Filling out the form and logging in..."
       begin
         post_login_page = login_page.form_with(action: %r{ap/signin}) do |f|
